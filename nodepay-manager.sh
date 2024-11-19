@@ -100,7 +100,7 @@ show_instances() {
                 name=$(cat "${dir}instance_name.txt")
                 echo "  🔸 Nodepay$number ($name)"
             else
-                echo "  🔸 Nodepay$number (без име��и)"
+                echo "  🔸 Nodepay$number (без имеи)"
             fi
         fi
     done
@@ -172,16 +172,28 @@ edit_proxy() {
     
     if [ -d "nodepay$instance_number" ]; then
         name=$(cat "nodepay$instance_number/instance_name.txt" 2>/dev/null || echo "без имени")
-        # Останавливаем текущую screen сессию, если она существует
-        screen -X -S "nodepay${instance_number}_${name}" quit 2>/dev/null
+        
+        # Находим и останавливаем все screen сессии для данного экземпляра
+        echo "Останавливаем существующие сессии..."
+        screen -ls | grep "nodepay${instance_number}_${name}" | cut -d. -f1 | while read pid; do
+            screen -X -S $pid quit
+        done
         
         echo "Редактирование proxy.txt для Nodepay$instance_number ($name)"
         echo "Введите новые прокси (каждый с новой строки, для завершения нажмите Ctrl+D):"
         cat > nodepay$instance_number/proxy.txt
         
-        # Автоматически презапускаем nodepay
+        # Запускаем новую screen сессию
         screen -S "nodepay${instance_number}_${name}" -dm bash -c "cd nodepay$instance_number && npm start"
         echo "Прокси обновлены и Nodepay$instance_number ($name) перезапущен!"
+        
+        # Подключаемся к новой сессии для настройки
+        echo ""
+        echo "⚠️  Подключение к новой сессии для настройки..."
+        echo "1. Нажмите Enter для подключения"
+        echo "2. После настройки нажмите Ctrl+A, затем D для отключения"
+        read
+        screen -r "nodepay${instance_number}_${name}"
     else
         echo "Nodepay$instance_number не существует!"
     fi

@@ -69,8 +69,12 @@ create_nodepay() {
         done
         
         echo "Создаю Nodepay$instance_number ($instance_name)..."
+        
+        # Клонируем репозиторий и сразу обновляем его
         git clone https://github.com/dante4rt/nodepay-airdrop-bot.git nodepay$instance_number
         cd nodepay$instance_number
+        echo "🔄 Обновление до последней версии..."
+        git pull
         
         # Сохраняем имя экземпляра
         echo "$instance_name" > instance_name.txt
@@ -82,9 +86,10 @@ create_nodepay() {
         echo "Введите прокси для $instance_name (каждый прокси с новой строки, для завершения нажмите Ctrl+D):"
         cat > proxy.txt
         
+        echo "📥 Установка зависимостей..."
         npm install
         
-        echo "Nodepay $instance_name (ID: $instance_number) успешно создан!"
+        echo "✅ Nodepay $instance_name (ID: $instance_number) успешно создан и обновлен!"
         cd ..
         echo "----------------------------------------"
     done
@@ -310,7 +315,68 @@ delete_nodepay() {
     fi
 }
 
-# Обновленное главное меню
+# Новая функция для обновления экземпляров
+update_nodepay() {
+    echo "Выберите что обновить:"
+    echo "1. Обновить конкретный экземпляр"
+    echo "2. Обновить ВСЕ экземпляры"
+    echo "3. Отмена"
+    read update_choice
+
+    case $update_choice in
+        1)
+            show_instances
+            echo "Введите номер Nodepay для обновления:"
+            read instance_number
+            
+            if [ -d "nodepay$instance_number" ]; then
+                name=$(cat "nodepay$instance_number/instance_name.txt" 2>/dev/null || echo "без имени")
+                echo "🔄 Обновление Nodepay$instance_number ($name)..."
+                
+                # Останавливаем screen сессию
+                screen -X -S "nodepay${instance_number}_${name}" quit 2>/dev/null
+                
+                # Обновляем бот
+                cd "nodepay$instance_number"
+                git pull
+                npm install
+                cd ..
+                
+                echo "✅ Nodepay$instance_number ($name) успешно обновлен!"
+            else
+                echo "❌ Nodepay$instance_number не существует!"
+            fi
+            ;;
+        2)
+            echo "🔄 Обновление ВСЕХ экземпляров..."
+            for dir in nodepay*/; do
+                if [ -d "$dir" ]; then
+                    number=${dir//[!0-9]/}
+                    name=$(cat "${dir}instance_name.txt" 2>/dev/null || echo "без имени")
+                    
+                    # Останавливаем screen сессию
+                    screen -X -S "nodepay${number}_${name}" quit 2>/dev/null
+                    
+                    # Обновляем бот
+                    echo "🔄 Обновление Nodepay$number ($name)..."
+                    cd "$dir"
+                    git pull
+                    npm install
+                    cd ..
+                fi
+            done
+            echo "✅ Все экземпляры успешно обновлены!"
+            ;;
+        3)
+            echo "Обновление отменено"
+            ;;
+        *)
+            echo "❌ Неверный выбор!"
+            ;;
+    esac
+}
+
+# Обновленное главное меню (добавляем новый пункт перед выходом)
 while true; do
     clear
     echo "🤖 === Управление Nodepay === 🤖"
@@ -324,8 +390,9 @@ while true; do
     echo "6. 🔄 Редактировать прокси"
     echo "7. ✏️  Изменить имя"
     echo "8. 🗑️  Удалить экземпляр"
-    echo "9. 🚪 Выход"
-    echo "Выберите действие (1-9):"
+    echo "9. 📥 Обновить Nodepay"
+    echo "10. 🚪 Выход"
+    echo "Выберите действие (1-10):"
     
     read choice
     
@@ -363,6 +430,10 @@ while true; do
             delete_nodepay
             ;;
         9)
+            echo "📥 Обновление Nodepay..."
+            update_nodepay
+            ;;
+        10)
             echo "👋 До свидания!"
             exit 0
             ;;

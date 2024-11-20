@@ -136,19 +136,61 @@ start_nodepay() {
 
 # Функция для просмотра логов
 view_logs() {
-    show_instances
-    
-    echo "Введите номер Nodepay для просмотра логов:"
-    read instance_number
-    
-    if [ -d "nodepay$instance_number" ]; then
-        name=$(cat "nodepay$instance_number/instance_name.txt" 2>/dev/null || echo "без имени")
-        echo "Нажмите Ctrl+A, затем D для выхода из screen"
-        sleep 3
-        screen -r "nodepay${instance_number}_${name}"
-    else
-        echo "Nodepay$instance_number не существует!"
-    fi
+    echo "Выберите действие:"
+    echo "1. Подключиться к логам конкретного экземпляра"
+    echo "2. Посмотреть последние 10 строк логов всех экземпляров"
+    echo "3. Отмена"
+    read log_choice
+
+    case $log_choice in
+        1)
+            show_instances
+            echo "Введите номер Nodepay для просмотра логов:"
+            read instance_number
+            
+            if [ -d "nodepay$instance_number" ]; then
+                name=$(cat "nodepay$instance_number/instance_name.txt" 2>/dev/null || echo "без имени")
+                echo "Нажмите Ctrl+A, затем D для выхода из screen"
+                sleep 3
+                screen -r "nodepay${instance_number}_${name}"
+            else
+                echo "❌ Nodepay$instance_number не существует!"
+            fi
+            ;;
+        2)
+            echo "📋 Последние логи всех экземпляров:"
+            for dir in nodepay*/; do
+                if [ -d "$dir" ]; then
+                    number=${dir//[!0-9]/}
+                    name=$(cat "${dir}instance_name.txt" 2>/dev/null || echo "без имени")
+                    echo ""
+                    echo "🔸 Nodepay$number ($name):"
+                    echo "----------------------------------------"
+                    # Получаем PID screen сессии
+                    screen_pid=$(screen -ls | grep "nodepay${number}_${name}" | cut -d. -f1)
+                    if [ ! -z "$screen_pid" ]; then
+                        # Выводим последние 10 строк из логов screen сессии
+                        screen -S "nodepay${number}_${name}" -X hardcopy .screen_log
+                        if [ -f .screen_log ]; then
+                            tail -n 10 .screen_log
+                            rm .screen_log
+                        else
+                            echo "❌ Логи недоступны"
+                        fi
+                    else
+                        echo "❌ Экземпляр не запущен"
+                    fi
+                    echo "----------------------------------------"
+                fi
+            done
+            ;;
+        3)
+            echo "Просмотр логов отменен"
+            ;;
+        *)
+            echo "❌ Неверный выбор!"
+            ;;
+    esac
 }
 
 # Функция для остановки экземпляра Nodepay
@@ -376,7 +418,53 @@ update_nodepay() {
     esac
 }
 
-# Обновленное главное меню (добавляем новый пункт перед выходом)
+# Функция для просмотра токенов
+view_tokens() {
+    echo "Выберите действие:"
+    echo "1. Посмотреть токен конкретного экземпляра"
+    echo "2. Посмотреть все токены"
+    echo "3. Отмена"
+    read token_choice
+
+    case $token_choice in
+        1)
+            show_instances
+            echo "Введите номер Nodepay для просмотра токена:"
+            read instance_number
+            
+            if [ -d "nodepay$instance_number" ]; then
+                name=$(cat "nodepay$instance_number/instance_name.txt" 2>/dev/null || echo "без имени")
+                echo "📝 Токен для Nodepay$instance_number ($name):"
+                echo "----------------------------------------"
+                cat "nodepay$instance_number/token.txt"
+                echo "----------------------------------------"
+            else
+                echo "❌ Nodepay$instance_number не существует!"
+            fi
+            ;;
+        2)
+            echo "📝 Токены всех экземпляров:"
+            for dir in nodepay*/; do
+                if [ -d "$dir" ]; then
+                    number=${dir//[!0-9]/}
+                    name=$(cat "${dir}instance_name.txt" 2>/dev/null || echo "без имени")
+                    echo "----------------------------------------"
+                    echo "🔸 Nodepay$number ($name):"
+                    cat "${dir}token.txt"
+                fi
+            done
+            echo "----------------------------------------"
+            ;;
+        3)
+            echo "Просмотр токенов отменен"
+            ;;
+        *)
+            echo "❌ Неверный выбор!"
+            ;;
+    esac
+}
+
+# Обновленное главное меню (добавляем новый пункт)
 while true; do
     clear
     echo "🤖 === Управление Nodepay === 🤖"
@@ -391,8 +479,9 @@ while true; do
     echo "7. ✏️  Изменить имя"
     echo "8. 🗑️  Удалить экземпляр"
     echo "9. 📥 Обновить Nodepay"
-    echo "10. 🚪 Выход"
-    echo "Выберите действие (1-10):"
+    echo "10. 🔑 Просмотреть токены"
+    echo "11. 🚪 Выход"
+    echo "Выберите действие (1-11):"
     
     read choice
     
@@ -434,6 +523,10 @@ while true; do
             update_nodepay
             ;;
         10)
+            echo "🔑 Просмотр токенов..."
+            view_tokens
+            ;;
+        11)
             echo "👋 До свидания!"
             exit 0
             ;;
